@@ -1,13 +1,42 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import Column, Integer, Float, DateTime, create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime
 import math
 
+# FastAPI app
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
+# Database setup
+DATABASE_URL = "sqlite:///./calculations.db"
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(bind=engine)
+Base = declarative_base()
 
+# ORM Model
+class Calculation(Base):
+    __tablename__ = "calculations"
+    id = Column(Integer, primary_key=True, index=True)
+    house_price = Column(Float)
+    interest_rate = Column(Float)
+    loan_term_years = Column(Integer)
+    target_monthly_payment = Column(Float)
+    current_savings = Column(Float)
+    monthly_saving = Column(Float)
+    down_payment = Column(Float)
+    years_to_goal = Column(Integer)
+    months_to_goal = Column(Integer)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+# Create DB table
+Base.metadata.create_all(bind=engine)
+
+
+# Calculator Logic
 class HomeSavingsPlanner:
     def __init__(self, house_price, interest_rate, loan_term_years,
                  target_monthly_payment, current_savings, monthly_saving):
@@ -34,7 +63,7 @@ class HomeSavingsPlanner:
         down_payment_needed = self._required_down_payment()
         shortfall = down_payment_needed - self.current_savings
         if shortfall <= 0:
-            return (0, 0)
+            return 0, 0, down_payment_needed
         months_needed = math.ceil(shortfall / self.monthly_saving)
         years = months_needed // 12
         months = months_needed % 12
@@ -58,6 +87,24 @@ async def calculate(data: dict):
             monthly_saving=float(data["monthly_saving"]),
         )
         years, months, down_payment = planner.time_to_afford_home()
+
+        # Store in DB
+        db = SessionLocal()
+        record = Calculation(
+            house_price=planner.house_price,
+            interest_rate=planner.annual_interest_rate,
+            loan_term_years=planner.loan_term_years,
+            target_monthly_payment=planner.target_monthly_payment,
+            current_savings=planner.current_savings,
+            monthly_saving=planner.monthly_saving,
+            down_payment=round(down_payment, 2),
+            years_to_goal=years,
+            months_to_goal=months,
+        )
+        db.add(record)
+        db.commit()
+        db.close()
+
         return JSONResponse({
             "years": years,
             "months": months,

@@ -3,22 +3,54 @@
 <head>
   <meta charset="UTF-8">
   <title>Home Savings Planner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-  <h2>Home Savings Calculator</h2>
-  <form id="calc-form">
-    <label>House Price: <input type="number" step="any" name="house_price" required></label><br>
-    <label>Interest Rate (%): <input type="number" step="any" name="interest_rate" required></label><br>
-    <label>Loan Term (years): <input type="number" name="loan_term_years" required></label><br>
-    <label>Target Monthly Payment: <input type="number" step="any" name="target_monthly_payment" required></label><br>
-    <label>Current Savings: <input type="number" step="any" name="current_savings" required></label><br>
-    <label>Monthly Saving: <input type="number" step="any" name="monthly_saving" required></label><br><br>
-    <button type="submit">Calculate</button>
-  </form>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-2xl">
+    <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">🏡 Home Savings Calculator</h2>
 
-  <div id="result"></div>
+    <form id="calc-form" class="space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-gray-700 font-medium">House Price</label>
+          <input type="number" step="any" name="house_price" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-gray-700 font-medium">Interest Rate (%)</label>
+          <input type="number" step="any" name="interest_rate" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-gray-700 font-medium">Loan Term (years)</label>
+          <input type="number" name="loan_term_years" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-gray-700 font-medium">Target Monthly Payment</label>
+          <input type="number" step="any" name="target_monthly_payment" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-gray-700 font-medium">Current Savings</label>
+          <input type="number" step="any" name="current_savings" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+        </div>
+        <div>
+          <label class="block text-gray-700 font-medium">Monthly Saving</label>
+          <input type="number" step="any" name="monthly_saving" required class="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+        </div>
+      </div>
+
+      <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200 font-semibold">
+        Calculate
+      </button>
+    </form>
+
+    <div id="result" class="mt-6 text-center text-lg text-gray-800 font-medium"></div>
+
+    <canvas id="savingsChart" class="mt-6" height="120"></canvas>
+  </div>
 
   <script>
+    let chartInstance = null;
+
     document.getElementById("calc-form").addEventListener("submit", async function (e) {
       e.preventDefault();
       const formData = new FormData(e.target);
@@ -35,11 +67,76 @@
 
       if (response.ok) {
         output.innerHTML = `
-          <p><strong>Required Down Payment:</strong> $${result.down_payment}</p>
-          <p><strong>Time Remaining:</strong> ${result.years} years and ${result.months} months</p>
+          <p>📌 <strong>Required Down Payment:</strong> $${result.down_payment.toLocaleString()}</p>
+          <p>⏳ <strong>Time Remaining:</strong> ${result.years} years and ${result.months} months</p>
         `;
+
+        const currentSavings = parseFloat(data.current_savings);
+        const monthlySaving = parseFloat(data.monthly_saving);
+        const months = result.years * 12 + result.months;
+
+        // Prepare chart data
+        const labels = [];
+        const savingsData = [];
+        for (let i = 0; i <= months; i++) {
+          labels.push(`Month ${i}`);
+          savingsData.push(currentSavings + i * monthlySaving);
+        }
+
+        // Destroy old chart instance if it exists
+        if (chartInstance) {
+          chartInstance.destroy();
+        }
+
+        const ctx = document.getElementById('savingsChart').getContext('2d');
+        chartInstance = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Projected Savings',
+                data: savingsData,
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.3,
+                fill: true,
+              },
+              {
+                label: 'Required Down Payment',
+                data: new Array(months + 1).fill(result.down_payment),
+                borderDash: [5, 5],
+                borderColor: '#EF4444',
+                pointRadius: 0,
+                borderWidth: 2,
+                fill: false,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                title: {
+                  display: true,
+                  text: 'Savings ($)'
+                }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: 'Months'
+                }
+              }
+            }
+          }
+        });
+
       } else {
-        output.innerHTML = `<p style="color: red;">Error: ${result.error}</p>`;
+        output.innerHTML = `<p class="text-red-600">❌ Error: ${result.error}</p>`;
+        if (chartInstance) {
+          chartInstance.destroy();
+        }
       }
     });
   </script>
