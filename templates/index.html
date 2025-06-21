@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Home Savings Planner</title>
+</head>
+<body>
+  <h2>Home Savings Calculator</h2>
+  <form id="calc-form">
+    <label>House Price: <input type="number" step="any" name="house_price" required></label><br>
+    <label>Interest Rate (%): <input type="number" step="any" name="interest_rate" required></label><br>
+    <label>Loan Term (years): <input type="number" name="loan_term_years" required></label><br>
+    <label>Target Monthly Payment: <input type="number" step="any" name="target_monthly_payment" required></label><br>
+    <label>Current Savings: <input type="number" step="any" name="current_savings" required></label><br>
+    <label>Monthly Saving: <input type="number" step="any" name="monthly_saving" required></label><br><br>
+    <button type="submit">Calculate</button>
+  </form>
+
+  <div id="result"></div>
+
+  <script>
+    document.getElementById("calc-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData.entries());
+
+      const response = await fetch("/calculate", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+      });
+
+      const result = await response.json();
+      const output = document.getElementById("result");
+
+      if (response.ok) {
+        output.innerHTML = `
+          <p><strong>Required Down Payment:</strong> $${result.down_payment}</p>
+          <p><strong>Time Remaining:</strong> ${result.years} years and ${result.months} months</p>
+        `;
+      } else {
+        output.innerHTML = `<p style="color: red;">Error: ${result.error}</p>`;
+      }
+    });
+  </script>
+</body>
+</html>
